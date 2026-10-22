@@ -1,0 +1,47 @@
+name: Análisis diario BTTS
+
+on:
+  schedule:
+    # 08:00 UTC a diario (ajusta la hora a tu zona; GitHub Actions usa UTC)
+    - cron: "0 8 * * *"
+  workflow_dispatch:          # permite ejecutarlo manualmente desde la pestaña Actions
+    inputs:
+      date:
+        description: "Fecha a analizar (YYYY-MM-DD). Vacío = hoy (UTC)"
+        required: false
+        default: ""
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clonar el repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Instalar dependencias
+        run: pip install -r requirements.txt
+
+      - name: Ejecutar análisis BTTS del día
+        env:
+          THESTATSAPI_API_KEY: ${{ secrets.THESTATSAPI_API_KEY }}
+        run: |
+          if [ -n "${{ github.event.inputs.date }}" ]; then
+            python main.py --date "${{ github.event.inputs.date }}"
+          else
+            python main.py
+          fi
+
+      - name: Guardar reporte JSON como artefacto
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reporte-btts-${{ github.run_id }}
+          path: reportes/*.json
+          if-no-files-found: warn
+          retention-days: 30
